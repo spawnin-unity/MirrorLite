@@ -1,5 +1,8 @@
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using UnityEditor;
+using UnityEngine;
 
 namespace Mirror
 {
@@ -11,10 +14,21 @@ namespace Mirror
         [InitializeOnLoadMethod]
         public static void AddDefineSymbols()
         {
+            // Art/minimal slice (no Assets/Private/Scripts): do not force-add bare MIRROR.
+            // PrivateModuleConfigurator strips it for that mode; re-adding here caused an
+            // infinite define-change → domain-reload loop.
+            bool privateGameplayPresent = Directory.Exists(
+                Path.Combine(Application.dataPath, "Private", "Scripts"));
+
             string currentDefines = PlayerSettings.GetScriptingDefineSymbolsForGroup(EditorUserBuildSettings.selectedBuildTargetGroup);
-            HashSet<string> defines = new HashSet<string>(currentDefines.Split(';'))
+            var defines = new HashSet<string>(
+                currentDefines.Split(';').Where(d => !string.IsNullOrWhiteSpace(d)));
+
+            if (privateGameplayPresent)
+                defines.Add("MIRROR");
+
+            string[] versionDefines =
             {
-                "MIRROR",
                 "MIRROR_17_0_OR_NEWER",
                 "MIRROR_18_0_OR_NEWER",
                 "MIRROR_24_0_OR_NEWER",
@@ -44,10 +58,23 @@ namespace Mirror
                 "MIRROR_58_0_OR_NEWER",
                 "MIRROR_65_0_OR_NEWER"
             };
+            foreach (string define in versionDefines)
+                defines.Add(define);
 
-            // only touch PlayerSettings if we actually modified it.
-            // otherwise it shows up as changed in git each time.
-            string newDefines = string.Join(";", defines);
+            // Preserve existing order; append only missing symbols so we don't
+            // rewrite PlayerSettings (and trigger domain reload) every launch.
+            var ordered = currentDefines.Split(';')
+                .Where(d => !string.IsNullOrWhiteSpace(d))
+                .ToList();
+            if (!privateGameplayPresent)
+                ordered.RemoveAll(d => d == "MIRROR");
+            foreach (string define in defines)
+            {
+                if (!ordered.Contains(define))
+                    ordered.Add(define);
+            }
+
+            string newDefines = string.Join(";", ordered);
             if (newDefines != currentDefines)
             {
                 PlayerSettings.SetScriptingDefineSymbolsForGroup(EditorUserBuildSettings.selectedBuildTargetGroup, newDefines);
