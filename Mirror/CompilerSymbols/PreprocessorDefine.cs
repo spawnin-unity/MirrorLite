@@ -25,7 +25,14 @@ namespace Mirror
                 currentDefines.Split(';').Where(d => !string.IsNullOrWhiteSpace(d)));
 
             if (privateGameplayPresent)
+            {
                 defines.Add("MIRROR");
+                // Keep public Importing/Behaviours asmdefs disabled while Private is
+                // checked out. Without this, both assemblies compile and CS0433 the
+                // shared namespaces — which also breaks Assembly-CSharp-Editor so
+                // PrivateModuleConfigurator cannot self-heal.
+                defines.Add("SAU_PRIVATE");
+            }
 
             string[] versionDefines =
             {
@@ -67,7 +74,10 @@ namespace Mirror
                 .Where(d => !string.IsNullOrWhiteSpace(d))
                 .ToList();
             if (!privateGameplayPresent)
+            {
                 ordered.RemoveAll(d => d == "MIRROR");
+                ordered.RemoveAll(d => d == "SAU_PRIVATE");
+            }
             foreach (string define in defines)
             {
                 if (!ordered.Contains(define))
