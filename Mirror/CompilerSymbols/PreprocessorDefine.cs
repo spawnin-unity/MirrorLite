@@ -75,6 +75,12 @@ namespace Mirror
                 .ToList();
             if (!privateGameplayPresent)
             {
+                // Remove these from the set as well as the ordered list. If a
+                // stale project setting is present, appending the HashSet below
+                // would otherwise add the symbols straight back after this
+                // cleanup.
+                defines.Remove("MIRROR");
+                defines.Remove("SAU_PRIVATE");
                 ordered.RemoveAll(d => d == "MIRROR");
                 ordered.RemoveAll(d => d == "SAU_PRIVATE");
             }
